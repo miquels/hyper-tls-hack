@@ -71,7 +71,7 @@ extern crate bytes;
 use std::fmt;
 use std::net::{SocketAddr, TcpListener as StdTcpListener};
 use std::time::{Duration, Instant};
-use std::io::{self, Error, ErrorKind};
+use std::io::{self, Error, ErrorKind, Read};
 use std::path::Path;
 
 use futures::prelude::*;
@@ -286,7 +286,9 @@ impl fmt::Debug for AddrIncoming {
 ///  openssl pkcs12 -export -out identity.pfx -inkey cert.key -in chained-cert.crt
 /// ```
 pub fn acceptor_from_file(path: impl AsRef<Path>, password: &str) -> io::Result<TlsAcceptor> {
-    let identity = std::fs::read_to_string(path)?.into_bytes();
+    let mut file = std::fs::File::open(path)?;
+    let mut identity = vec![];
+    file.read_to_end(&mut identity)?;
     let identity = Identity::from_pkcs12(&identity, password).map_err(|e| Error::new(ErrorKind::Other, e))?;
     TlsAcceptor::new(identity).map_err(|e| Error::new(ErrorKind::Other, e))
 }
