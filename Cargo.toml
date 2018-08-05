@@ -1,0 +1,18 @@
+[package]
+name = "hyper-tls-hack"
+version = "0.1.0"
+authors = ["Miquel van Smoorenburg <mike@langeraar.net>"]
+
+[dependencies]
+log = "0.4.3"
+bytes = "0.4.9"
+futures = "0.1"
+tokio-reactor = "0.1.2"
+tokio-tcp = "0.1"
+tokio-timer = "0.2.4"
+tokio-tls = "0.2.0"
+native-tls = "0.2.1"
+
+[patch.crates-io]
+tokio-tls = { git = "https://github.com/phlmn/tokio-tls", branch = "new-tokio" }
+
