@@ -174,12 +174,15 @@ impl Stream for AddrIncoming {
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
 
         // first see if any TlsStreams are ready.
-        match self.tls_queue.poll() {
-            Ok(Async::Ready(Some(val))) => return Ok(Async::Ready(Some(val))),
-            Ok(Async::Ready(None)) => {},
-            Ok(Async::NotReady) => {},
-            Err(err) => {
-                error!("tls acceptor qeueu error: {}", err);
+        loop {
+            match self.tls_queue.poll() {
+                Ok(Async::Ready(Some(val))) => return Ok(Async::Ready(Some(val))),
+                Ok(Async::Ready(None)) => break,
+                Ok(Async::NotReady) => break,
+                Err(err) => {
+                    // handshake error, ignore, but keep polling.
+                    error!("tls acceptor error: {}", err);
+                }
             }
         }
 
