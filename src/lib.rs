@@ -138,6 +138,37 @@ impl AddrIncoming {
         })
     }
 
+    /// Create a new `AddrIncoming` from the standard library's TCP listener.
+    ///
+    /// This method can be used when the `AddrIncoming::new` method isn't
+    /// sufficient, usually because some more configuration of the tcp socket
+    /// is needed before the calls to bind and listen.
+    ///
+    /// This API is typically paired with the `net2` crate and the `TcpBuilder`
+    /// type to build up and customize a `AddrIncoming` before it's used with
+    /// `hyper::server::Server`. This allows configuration of options like
+    /// SO_REUSEPORT, IPV6_V6ONLY, listen backlog length, etc.
+    pub fn from_std_listener(std_listener: StdTcpListener, tls_acceptor: Arc<TlsAcceptor>, handle: Option<&Handle>) -> io::Result<AddrIncoming> {
+        let listener = if let Some(handle) = handle {
+            TcpListener::from_std(std_listener, handle)?
+        } else {
+            TcpListener::from_std(std_listener, &Handle::default())?
+        };
+
+        let addr = listener.local_addr()?;
+
+        Ok(AddrIncoming {
+            addr: addr,
+            listener: listener,
+            sleep_on_errors: true,
+            tcp_keepalive_timeout: None,
+            tcp_nodelay: false,
+            timeout: None,
+            tls_acceptor: tls_acceptor,
+            tls_queue: FuturesUnordered::new(),
+        })
+    }
+
     /// Get the local address bound to this listener.
     pub fn local_addr(&self) -> SocketAddr {
         self.addr
