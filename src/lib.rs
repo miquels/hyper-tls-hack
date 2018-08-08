@@ -18,7 +18,7 @@
 //! ```no_run
 //! [patch.crates-io]
 //! # DELETE THIS AFTER TOKIO-TLS 0.2 HAS BEEN RELEASED
-//! tokio-tls = { git = "https://github.com/phlmn/tokio-tls", branch = "new-tokio" }
+//! tokio-tls = { git = "https://github.com/tokio-rs/tokio-tls" }
 //! ```
 //! 
 //! So why is it called `hyper-tls-hack`? Well for 3 reasons actually:
@@ -34,18 +34,20 @@
 //! extern crate hyper;
 //! extern crate hyper_tls_hack;
 //!
+//! use std::sync::Arc;
+//!
 //! use hyper::{Body, Response, Server};
 //! use hyper::rt::Future;
 //! use hyper::service::service_fn_ok;
 //!
-//! static TEXT: &str = "Hello, World!";
+//! static TEXT: &str = "Hello, HTTPS World!\n";
 //!
 //! fn main() {
 //!
-//!     let addr = ([127, 0, 0, 1], 3000).into();
+//!     let addr = ([0, 0, 0, 0], 8445).into();
 //!     let new_svc = || { service_fn_ok(|_req|{ Response::new(Body::from(TEXT)) }) };
 //!
-//!     let acceptor = hyper_tls_hack::acceptor_from_file("identity.pfx", "").unwrap();
+//!     let acceptor = Arc::new(hyper_tls_hack::acceptor_from_p12_file("cert.p12", "").unwrap());
 //!     let mut ai = hyper_tls_hack::AddrIncoming::new(&addr, acceptor, None).expect("addrincoming error");
 //!     ai.set_nodelay(true);
 //!
@@ -64,6 +66,7 @@ extern crate futures;
 extern crate tokio_reactor;
 extern crate tokio_tls;
 extern crate tokio_tcp;
+extern crate tokio_io;
 extern crate tokio_timer;
 extern crate native_tls;
 extern crate bytes;
@@ -73,15 +76,14 @@ use std::net::{SocketAddr, TcpListener as StdTcpListener};
 use std::time::{Duration, Instant};
 use std::io::{self, Error, ErrorKind, Read};
 use std::path::Path;
+use std::sync::Arc;
 
 use futures::prelude::*;
 use futures::stream::{Stream, FuturesUnordered};
 use tokio_reactor::Handle;
 use tokio_tcp::{TcpStream, TcpListener};
 use tokio_timer::Delay;
-
-use native_tls::{Identity,TlsAcceptor};
-use tokio_tls::{AcceptAsync,TlsStream, TlsAcceptorExt};
+use tokio_tls::{TlsAcceptor,TlsStream};
 
 /// A stream of TLS connections from binding to an address.
 ///
@@ -108,15 +110,15 @@ pub struct AddrIncoming {
     tcp_keepalive_timeout: Option<Duration>,
     tcp_nodelay: bool,
     timeout: Option<Delay>,
-    tls_acceptor: TlsAcceptor,
-    tls_queue: FuturesUnordered<AcceptAsync<TcpStream>>,
+    tls_acceptor: Arc<TlsAcceptor>,
+    tls_queue: FuturesUnordered<tokio_tls::Accept<TcpStream>>,
 }
 
 impl AddrIncoming {
 
     /// Build a new `AddrIncoming` that that generates `TlsStream`s
     /// instead of `TcpStream`s.
-    pub fn new(addr: &SocketAddr, tls_acceptor: TlsAcceptor, handle: Option<&Handle>) -> io::Result<AddrIncoming> {
+    pub fn new(addr: &SocketAddr, tls_acceptor: Arc<TlsAcceptor>, handle: Option<&Handle>) -> io::Result<AddrIncoming> {
         let listener = if let Some(handle) = handle {
             let std_listener = StdTcpListener::bind(addr)?;
             TcpListener::from_std(std_listener, handle)?
@@ -242,7 +244,7 @@ impl Stream for AddrIncoming {
                         trace!("error trying to set TCP nodelay: {}", e);
                     }
                     // socket is ready, start TLS handshake.
-                    let future = self.tls_acceptor.accept_async(socket);
+                    let future = self.tls_acceptor.accept(socket);
                     self.tls_queue.push(future);
                     continue;
                 },
@@ -311,16 +313,17 @@ impl fmt::Debug for AddrIncoming {
 /// Simple utility function that reads a certificate file, and returns
 /// a TlsAcceptor. Useful for examples in documentation :)
 ///
-/// If you have a cert in the form of a .key and a .crt file, you can
-/// generate a .pfx file using openssl:
+/// If you have a cert in the form of a PEM .key and .crt file, you can
+/// generate a .p12 file using openssl:
 /// ```
-///  openssl pkcs12 -export -out identity.pfx -inkey cert.key -in chained-cert.crt
+///  openssl pkcs12 -export -out cert.p12 -inkey cert.key -in chained-cert.crt
 /// ```
-pub fn acceptor_from_file(path: impl AsRef<Path>, password: &str) -> io::Result<TlsAcceptor> {
+pub fn acceptor_from_p12_file(path: impl AsRef<Path>, password: &str) -> io::Result<TlsAcceptor> {
     let mut file = std::fs::File::open(path)?;
-    let mut identity = vec![];
-    file.read_to_end(&mut identity)?;
-    let identity = Identity::from_pkcs12(&identity, password).map_err(|e| Error::new(ErrorKind::Other, e))?;
-    TlsAcceptor::new(identity).map_err(|e| Error::new(ErrorKind::Other, e))
+    let mut der = vec![];
+    file.read_to_end(&mut der)?;
+    let cert = native_tls::Identity::from_pkcs12(&der, password).map_err(|e| Error::new(ErrorKind::Other, e))?;
+    let tls_cx = native_tls::TlsAcceptor::builder(cert).build().map_err(|e| Error::new(ErrorKind::Other, e))?;
+    Ok(TlsAcceptor::from(tls_cx))
 }
 
