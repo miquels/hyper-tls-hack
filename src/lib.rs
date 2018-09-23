@@ -4,25 +4,17 @@
 //! is not a simple and correct implementation available that just
 //! "plugs in" to `hyper`.
 //!
-//! The latest (unreleased) `tokio_tls` does have
-//! an example how to use it with `hyper`, but then you miss out on an
-//! important part of `hyper`, implemented in `hyper::server::conn::AddrIncoming`,
-//! that retries when `accept()` fails (which it intermittently can).
+//! The latest `tokio_tls` does have an example how to use it with `hyper`,
+//! but then you miss out on an important part of `hyper`, implemented in
+//! `hyper::server::conn::AddrIncoming`, that retries when `accept()`
+//! fails (which it intermittently can).
 //! Otherwise your server might unexpectedly die at an inconvenient time.
 //!
 //! So, this crate is just a hack of `hyper`'s `AddrIncoming` that
 //! supports `tokio_tls`.
 //!
-//! NOTE NOTE NOTE NOTE    
-//! Until `tokio-tls 0.2` is released, you need to add this to your `Cargo.toml`:
-//! ```no_run
-//! [patch.crates-io]
-//! # DELETE THIS AFTER TOKIO-TLS 0.2 HAS BEEN RELEASED
-//! tokio-tls = { git = "https://github.com/tokio-rs/tokio-tls" }
-//! ```
-//! 
 //! So why is it called `hyper-tls-hack`? Well for 3 reasons actually:
-//! - this is my first published crate
+//! - this is my first crate
 //! - I might be using unstable interfaces of `hyper` and it might stop
 //!   working after the next `hyper` minor release
 //! - I assume that soon there will be an "official" way to do this.
