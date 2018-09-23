@@ -14,6 +14,3 @@ tokio-timer = "0.2.4"
 tokio-tls = "0.2.0"
 native-tls = "0.2.1"
 
-[patch.crates-io]
-#tokio-tls = { git = "https://github.com/phlmn/tokio-tls", branch = "new-tokio" }
-tokio-tls = { git = "https://github.com/tokio-rs/tokio-tls" }
