@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["acceptor_from_p12_file","Simple utility function that reads a certificate file, and returns a TlsAcceptor. Useful for examples in documentation :)"]],"struct":[["AddrIncoming","A stream of TLS connections from binding to an address."]]});
