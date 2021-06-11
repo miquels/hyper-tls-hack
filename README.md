@@ -2,6 +2,10 @@
 
 An implementation of `hyper`'s `AddrIncoming` that generates `TlsStream`s.
 
+## THIS REPOSITORY HAS BEEN ARCHIVED.
+
+You can find an alternative that works with newer hyper versions here: [tls-listener](https://github.com/tmccombs/tls-listener).
+
 ## Location
 This crate is not published on crates.io, because I am
 not sure I will be able to maintain it at this time.
